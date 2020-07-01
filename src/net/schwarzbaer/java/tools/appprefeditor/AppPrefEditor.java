@@ -41,13 +41,17 @@ public class AppPrefEditor {
 		try { UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName()); }
 		catch (ClassNotFoundException | InstantiationException | IllegalAccessException | UnsupportedLookAndFeelException e) {}
 		
-		int i = 0;
+//		int i = 0;
 //		showPrefs(i++,Preferences.userNodeForPackage(net.schwarzbaer.java.tools.bumpmappingtest.BumpMappingTest.class));
 //		//showPrefs(i++,Preferences.systemNodeForPackage(net.schwarzbaer.java.tools.bumpmappingtest.BumpMappingTest.class));
 //		//showPrefs(i++,Preferences.userNodeForPackage(net.schwarzbaer.java.tools.bumpmappingtest.BumpMappingTest.PolarTextOverlay.class));
 //		//showPrefs(i++,Preferences.userNodeForPackage(net.schwarzbaer.java.tools.bumpmappingtest.Dummy.class));
 //		showPrefs(i++,Preferences.userRoot());
-		showPrefs(i++,Preferences.systemRoot());
+//		try {
+//			showPrefs(i++,Preferences.systemRoot());
+//		} catch (Exception e) {
+//			e.printStackTrace();
+//		}
 		
 		new PreferencesView().createGUI(Preferences.userRoot(),"userRoot");
 	}
@@ -66,19 +70,22 @@ public class AppPrefEditor {
 		if (prefs==null)
 			out.printf("<null>%n");
 		else {
+			String[] keys = null;
 			out.printf("Name: \"%s\"%n",prefs.name());
 			out.printf("AbsolutePath: \"%s\"%n",prefs.absolutePath());
 			out.printf("IsUserNode: %s%n",prefs.isUserNode());
+			
 			try { out.printf("ChildrenNames: %s%n",Arrays.toString(prefs.childrenNames())); }
-			catch (BackingStoreException e) { out.printf("ChildrenNames: %n"); e.printStackTrace(); }
-			try { out.printf("Keys: %s%n",Arrays.toString(prefs.keys())); }
-			catch (BackingStoreException e) { out.printf("Keys: %n"); e.printStackTrace(); }
-			try {
-				for (String key:prefs.keys()) {
+			catch (BackingStoreException e) { out.printf("ChildrenNames: <BackingStoreException>%n"); e.printStackTrace(); }
+			
+			try { out.printf("Keys: %s%n",Arrays.toString(keys = prefs.keys())); }
+			catch (BackingStoreException e) { out.printf("Keys: <BackingStoreException>%n"); e.printStackTrace(); }
+			
+			if (keys!=null)
+				for (String key:keys) {
 					String value = prefs.get(key,"<unknown value>");
 					out.printf("    Value[\"%s\"]: \"%s\"%n", key, value);
 				}
-			} catch (BackingStoreException e) {}
 		}
 	}
 	
