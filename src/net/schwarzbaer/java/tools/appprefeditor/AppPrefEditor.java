@@ -6,12 +6,18 @@ import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.event.ActionListener;
 import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.PrintStream;
 import java.util.Arrays;
 import java.util.Enumeration;
 import java.util.Vector;
 import java.util.function.BiConsumer;
 import java.util.prefs.BackingStoreException;
+import java.util.prefs.InvalidPreferencesFormatException;
 import java.util.prefs.Preferences;
 
 import javax.swing.BorderFactory;
@@ -30,9 +36,11 @@ import javax.swing.UIManager;
 import javax.swing.UnsupportedLookAndFeelException;
 import javax.swing.event.ListDataEvent;
 import javax.swing.event.ListDataListener;
+import javax.swing.tree.DefaultTreeModel;
 import javax.swing.tree.TreeNode;
 import javax.swing.tree.TreePath;
 
+import net.schwarzbaer.gui.FileChooser;
 import net.schwarzbaer.gui.StandardMainWindow;
 
 public class AppPrefEditor {
@@ -53,7 +61,7 @@ public class AppPrefEditor {
 //			e.printStackTrace();
 //		}
 		
-		new PreferencesView().createGUI(Preferences.userRoot(),"userRoot");
+		new PreferencesView();
 	}
 
 	@SuppressWarnings("unused")
@@ -99,35 +107,53 @@ public class AppPrefEditor {
 
 	static class PreferencesView {
 
-		private StandardMainWindow mainwindow = null;
-		private ValueListModel valueListModel = null;
-
-		void createGUI(Preferences preferences, String rootLabel) {
+		private final StandardMainWindow mainwindow;
+		private final JTree prefTree;
+		private final JTextArea prefOutput;
+		private final JList<ValueListModel.Entry> valueList;
+		private final FileChooser xmlFileChooser;
+		private ValueListModel valueListModel;
+		private PreferencesTreeNode selectedTreeNode;
+		
+		PreferencesView() {
+			GridBagConstraints c;
 			
-			JTree tree = new JTree(new PreferencesTreeNode(null,rootLabel,preferences));
-			JScrollPane treeScrollPane = new JScrollPane(tree);
-			treeScrollPane.setBorder(BorderFactory.createTitledBorder("Preferences Tree"));
+			xmlFileChooser = new FileChooser("Preferences Backup", "xml");
+			
+			prefTree = new JTree(PreferencesTreeNode.createRootNode());
+			JScrollPane treeScrollPane = new JScrollPane(prefTree);
 			treeScrollPane.setPreferredSize(new Dimension(300,500));
 			
-			JTextArea textArea = new JTextArea();
-			JScrollPane textScrollPane = new JScrollPane(textArea);
+			JButton exportBtn, deleteBtn;
+			JPanel treeButtonPanel = new JPanel(new GridBagLayout());
+			c = new GridBagConstraints();
+			c.fill=GridBagConstraints.BOTH;
+			c.weightx=0;
+			treeButtonPanel.add(exportBtn = createButton("Export Selected", false, e->exportSelectedSubTree()),c);
+			treeButtonPanel.add(            createButton("Import"         , true , e->importSubTree()),c);
+			treeButtonPanel.add(deleteBtn = createButton("Delete Selected", false, e->deleteSelectedSubTree()),c);
+			c.weightx=1;
+			treeButtonPanel.add(new JLabel(),c);
+			
+			prefOutput = new JTextArea();
+			JScrollPane textScrollPane = new JScrollPane(prefOutput);
 			textScrollPane.setBorder(BorderFactory.createTitledBorder("Selected Preferences"));
 			textScrollPane.setPreferredSize(new Dimension(300,300));
 			
-			JList<ValueListModel.Entry> valueList = new JList<>();
-			JScrollPane listScrollPane = new JScrollPane(valueList);
-			listScrollPane.setPreferredSize(new Dimension(300,200));
+			valueList = new JList<>();
+			JScrollPane valueListScrollPane = new JScrollPane(valueList);
+			valueListScrollPane.setPreferredSize(new Dimension(300,200));
 			
 			JButton removeValueBtn,editValueBtn,renameValueBtn;
-			JPanel buttonPanel = new JPanel(new GridBagLayout());
-			GridBagConstraints c = new GridBagConstraints();
+			JPanel valueListButtonPanel = new JPanel(new GridBagLayout());
+			c = new GridBagConstraints();
 			c.fill=GridBagConstraints.BOTH;
 			c.weightx=0;
-			buttonPanel.add(removeValueBtn = createButton("Remove Value",false, e->removeValue(valueList.getSelectedValue())),c);
-			buttonPanel.add(  editValueBtn = createButton(  "Edit Value",false, e->  editValue(valueList.getSelectedValue())),c);
-			buttonPanel.add(renameValueBtn = createButton("Rename Value",false, e->renameValue(valueList.getSelectedValue())),c);
+			valueListButtonPanel.add(removeValueBtn = createButton("Remove Value",false, e->removeValue(valueList.getSelectedValue())),c);
+			valueListButtonPanel.add(  editValueBtn = createButton(  "Edit Value",false, e->  editValue(valueList.getSelectedValue())),c);
+			valueListButtonPanel.add(renameValueBtn = createButton("Rename Value",false, e->renameValue(valueList.getSelectedValue())),c);
 			c.weightx=1;
-			buttonPanel.add(new JLabel(),c);
+			valueListButtonPanel.add(new JLabel(),c);
 			
 			valueList.addListSelectionListener(e -> {
 				ValueListModel.Entry selectedValue = valueList.getSelectedValue();
@@ -136,25 +162,32 @@ public class AppPrefEditor {
 				renameValueBtn.setEnabled(selectedValue!=null);
 			});
 			
-			tree.addTreeSelectionListener(e -> {
-				PreferencesTreeNode selectedTreeNode = null;
-				TreePath path = e.getPath();
+			prefTree.addTreeSelectionListener(e -> {
+				selectedTreeNode = null;
+				TreePath path = prefTree.getSelectionPath();
 				if (path!=null) {
 					Object obj = path.getLastPathComponent();
 					if (obj instanceof PreferencesTreeNode)
 						selectedTreeNode = (PreferencesTreeNode) obj;
 				}
-				showValues(textArea,selectedTreeNode);
-				setValues(valueList,selectedTreeNode);
+				showValues();
+				setValueListModel();
 				removeValueBtn.setEnabled(false);
 				editValueBtn  .setEnabled(false);
 				renameValueBtn.setEnabled(false);
+				exportBtn.setEnabled(selectedTreeNode!=null);
+				deleteBtn.setEnabled(selectedTreeNode!=null && !selectedTreeNode.isRoot());
 			});
+			
+			JPanel treePanel = new JPanel(new BorderLayout(3,3));
+			treePanel.setBorder(BorderFactory.createTitledBorder("Preferences Tree"));
+			treePanel.add(treeScrollPane,BorderLayout.CENTER);
+			treePanel.add(treeButtonPanel,BorderLayout.SOUTH);
 			
 			JPanel valuePanel = new JPanel(new BorderLayout(3,3));
 			valuePanel.setBorder(BorderFactory.createTitledBorder("Preferences Values"));
-			valuePanel.add(listScrollPane,BorderLayout.CENTER);
-			valuePanel.add(buttonPanel,BorderLayout.SOUTH);
+			valuePanel.add(valueListScrollPane,BorderLayout.CENTER);
+			valuePanel.add(valueListButtonPanel,BorderLayout.SOUTH);
 			
 			JSplitPane rightPanel = new JSplitPane(JSplitPane.VERTICAL_SPLIT, true);
 			rightPanel.setTopComponent(textScrollPane);
@@ -163,15 +196,59 @@ public class AppPrefEditor {
 			
 			JSplitPane contentPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, true);
 			contentPane.setBorder(BorderFactory.createEmptyBorder(5,5,5,5));
-			contentPane.setLeftComponent(treeScrollPane);
+			contentPane.setLeftComponent(treePanel);
 			contentPane.setRightComponent(rightPanel);
 			contentPane.setResizeWeight(0.5);
 			
 			mainwindow = new StandardMainWindow("Application Preferences Editor");
 			mainwindow.startGUI(contentPane);
 			
-			for (int i=0; i<tree.getRowCount(); i++)
-				tree.expandRow(i);
+			expandTree();
+		}
+
+		private void expandTree() {
+			for (int i=0; i<prefTree.getRowCount(); i++)
+				prefTree.expandRow(i);
+		}
+
+		private void exportSelectedSubTree() {
+			if (selectedTreeNode==null) return;
+			if (xmlFileChooser.showSaveDialog(mainwindow)!=FileChooser.APPROVE_OPTION) return;
+			File file = xmlFileChooser.getSelectedFile();
+			try (FileOutputStream fileOut = new FileOutputStream(file)) {
+				selectedTreeNode.preferences.exportSubtree(fileOut);
+			}
+			catch (FileNotFoundException ex) { ex.printStackTrace(); }
+			catch (IOException ex) { ex.printStackTrace(); }
+			catch (BackingStoreException ex) { ex.printStackTrace(); }
+		}
+
+		private void importSubTree() {
+			if (xmlFileChooser.showOpenDialog(mainwindow)!=FileChooser.APPROVE_OPTION) return;
+			File file = xmlFileChooser.getSelectedFile();
+			try (FileInputStream fileIn = new FileInputStream(file)) {
+				selectedTreeNode = null;
+				Preferences.importPreferences(fileIn);
+			}
+			catch (FileNotFoundException e) { e.printStackTrace(); }
+			catch (IOException e) { e.printStackTrace(); }
+			catch (InvalidPreferencesFormatException e) { e.printStackTrace(); }
+			updateTree();
+		}
+
+		private void deleteSelectedSubTree() {
+			if (selectedTreeNode==null) return;
+			if (selectedTreeNode.isRoot()) return;
+			try { selectedTreeNode.preferences.removeNode(); }
+			catch (BackingStoreException e) { e.printStackTrace(); }
+			updateTree();
+		}
+
+		private void updateTree() {
+			prefTree.setModel(new DefaultTreeModel(PreferencesTreeNode.createRootNode()));
+			expandTree();
+			//showValues();
+			//setValueListModel();
 		}
 
 		private void renameValue(ValueListModel.Entry entry) {
@@ -199,10 +276,10 @@ public class AppPrefEditor {
 			return comp;
 		}
 		
-		private void setValues(JList<ValueListModel.Entry> valueList, PreferencesTreeNode treeNode) {
-			if (treeNode!=null && treeNode.preferences!=null)
+		private void setValueListModel() {
+			if (selectedTreeNode!=null && selectedTreeNode.preferences!=null)
 				try {
-					valueListModel = new ValueListModel(treeNode.preferences,treeNode.preferences.keys());
+					valueListModel = new ValueListModel(selectedTreeNode.preferences,selectedTreeNode.preferences.keys());
 					valueList.setModel(valueListModel);
 					return;
 				}
@@ -211,13 +288,13 @@ public class AppPrefEditor {
 			valueList.setModel(new DefaultListModel<>());
 		}
 
-		private void showValues(JTextArea textArea, PreferencesTreeNode treeNode) {
-			textArea.setText("");
-			if (treeNode==null) return;
-			if (treeNode.preferences==null)
-				textArea.setText("defined as child in parent node\r\nbut has no preferences node");
+		private void showValues() {
+			prefOutput.setText("");
+			if (selectedTreeNode==null) return;
+			if (selectedTreeNode.preferences==null)
+				prefOutput.setText("defined as child in parent node\r\nbut has no preferences node");
 			else
-				textArea.setText(prefToString(treeNode.preferences));
+				prefOutput.setText(prefToString(selectedTreeNode.preferences));
 		}
 		
 		private static class ValueListModel implements ListModel<ValueListModel.Entry> {
@@ -290,7 +367,11 @@ public class AppPrefEditor {
 			private final Preferences preferences;
 			private final Vector<PreferencesTreeNode> children;
 			
-			public PreferencesTreeNode(PreferencesTreeNode parent, String name, Preferences preferences) {
+			static PreferencesTreeNode createRootNode() {
+				return new PreferencesTreeNode(null,"userRoot",Preferences.userRoot());
+			}
+			
+			PreferencesTreeNode(PreferencesTreeNode parent, String name, Preferences preferences) {
 				this.parent = parent;
 				this.name = name;
 				this.preferences = preferences;
@@ -307,6 +388,11 @@ public class AppPrefEditor {
 						e.printStackTrace();
 					}
 			}
+			
+			public boolean isRoot() {
+				return preferences.absolutePath().equals("/");
+			}
+			
 			@Override public String toString() { return name; }
 
 			@Override public TreeNode getChildAt(int childIndex) {
