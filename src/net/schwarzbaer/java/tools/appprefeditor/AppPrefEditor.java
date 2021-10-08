@@ -129,6 +129,7 @@ public class AppPrefEditor {
 			c = new GridBagConstraints();
 			c.fill=GridBagConstraints.BOTH;
 			c.weightx=0;
+			treeButtonPanel.add(            createButton("Refresh"        , true , e->refreshTree()),c);
 			treeButtonPanel.add(exportBtn = createButton("Export Selected", false, e->exportSelectedSubTree()),c);
 			treeButtonPanel.add(            createButton("Import"         , true , e->importSubTree()),c);
 			treeButtonPanel.add(deleteBtn = createButton("Delete Selected", false, e->deleteSelectedSubTree()),c);
@@ -204,6 +205,12 @@ public class AppPrefEditor {
 			mainwindow.startGUI(contentPane);
 			
 			expandTree();
+		}
+
+		private void refreshTree() {
+			prefTree.setModel(new DefaultTreeModel(PreferencesTreeNode.createRootNode()));
+			expandTree();
+			// TODO Auto-generated method stub
 		}
 
 		private void expandTree() {
