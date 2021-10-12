@@ -42,6 +42,7 @@ import javax.swing.tree.TreePath;
 
 import net.schwarzbaer.gui.FileChooser;
 import net.schwarzbaer.gui.StandardMainWindow;
+import net.schwarzbaer.gui.TextAreaDialog;
 
 public class AppPrefEditor {
 
@@ -265,7 +266,8 @@ public class AppPrefEditor {
 		}
 
 		private void editValue(ValueListModel.Entry entry) {
-			String newValue = JOptionPane.showInputDialog(mainwindow, "Set value of \""+entry.key+"\":", entry.value);
+			String newValue = TextAreaDialog.editText(mainwindow, "Set value of \""+entry.key+"\"", 600, 500, true, entry.value);
+			//String newValue = JOptionPane.showInputDialog(mainwindow, "Set value of \""+entry.key+"\":", entry.value);
 			if (newValue==null) return;
 			valueListModel.changeValue(entry,newValue);
 		}
