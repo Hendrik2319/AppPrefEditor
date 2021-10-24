@@ -409,8 +409,7 @@ public class AppPrefEditor {
 				return children.get(childIndex);
 			}
 			
-			@SuppressWarnings("rawtypes")
-			@Override public Enumeration children() { return children.elements(); }
+			@Override public Enumeration<PreferencesTreeNode>  children() { return children.elements(); }
 			@Override public int getChildCount() { return children.size(); }
 			@Override public TreeNode getParent() { return parent; }
 			@Override public int getIndex(TreeNode node) { return children.indexOf(node); }
