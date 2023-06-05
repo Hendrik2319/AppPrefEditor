@@ -40,9 +40,9 @@ import javax.swing.tree.DefaultTreeModel;
 import javax.swing.tree.TreeNode;
 import javax.swing.tree.TreePath;
 
-import net.schwarzbaer.gui.FileChooser;
-import net.schwarzbaer.gui.StandardMainWindow;
-import net.schwarzbaer.gui.TextAreaDialog;
+import net.schwarzbaer.java.lib.gui.FileChooser;
+import net.schwarzbaer.java.lib.gui.StandardMainWindow;
+import net.schwarzbaer.java.lib.gui.TextAreaDialog;
 
 public class AppPrefEditor {
 
