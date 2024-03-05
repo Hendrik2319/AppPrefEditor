@@ -62,6 +62,10 @@ public class AppPrefEditor {
 //			e.printStackTrace();
 //		}
 		
+		System.out.println("AppPrefEditor");
+		System.out.printf("   User: %s%n", System.getProperty("user.name"));
+		System.out.printf("   Home: %s%n", System.getProperty("user.home"));
+		
 		new PreferencesView();
 	}
 
@@ -202,7 +206,7 @@ public class AppPrefEditor {
 			contentPane.setRightComponent(rightPanel);
 			contentPane.setResizeWeight(0.5);
 			
-			mainwindow = new StandardMainWindow("Application Preferences Editor");
+			mainwindow = new StandardMainWindow("Application Preferences Editor   -   User: %s".formatted(System.getProperty("user.name")));
 			mainwindow.startGUI(contentPane);
 			
 			expandTree();
